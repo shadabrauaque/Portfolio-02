@@ -1,0 +1,620 @@
+/*
+ * Styles for the "Ask about Shadab" chat assistant (chatbot/widget.js).
+ *
+ * Everything is prefixed `sb-` so it can't clash with the rest of the site, and it
+ * re-uses the site's own colours and fonts (--accent-color, --glass-border, --font-heading…)
+ * from style.css, so a palette change there carries over automatically.
+ *
+ * Stacking (site: navbar 1000, hamburger 1001, custom cursor 9999):
+ *   launcher + nudge 900 — sit *under* the navbar / mobile menu
+ *   chat panel       1200 — above the navbar, below the custom cursor
+ */
+
+.sb-root,
+.sb-root * { box-sizing: border-box; }
+
+.sb-root {
+  font-family: var(--font-body, 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-color, #e0e0e0);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Browser-default resets for buttons and the text box. :where() keeps their specificity at zero, so every
+   .sb-… rule below can override them (a plain `.sb-root button` here would beat `.sb-chip`, `.sb-send`, …). */
+:where(.sb-root) button,
+:where(.sb-root) input { font: inherit; color: inherit; margin: 0; }
+:where(.sb-root) button { background: none; border: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+.sb-root [hidden] { display: none !important; }
+
+/* The site hides the native cursor and draws its own ring (script.js) — do the same on desktop.
+   Buttons and inputs need this said explicitly: the browser's default cursor for them beats inheritance. */
+.sb-root,
+.sb-root a,
+.sb-root button,
+.sb-root input,
+.sb-root .sb-log { cursor: none; }
+
+/* ------------------------------------------------------------------ */
+/* Launcher + nudge                                                    */
+/* ------------------------------------------------------------------ */
+
+.sb-launcher {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 14px 18px;
+  border-radius: 999px;
+  background: var(--accent-color, #F7B225);
+  color: #000;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  box-shadow: 0 12px 32px rgba(247, 178, 37, 0.3), 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease, visibility 0s linear 0s;
+}
+
+.sb-launcher:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(247, 178, 37, 0.45), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* A soft ring that pulses twice, a couple of seconds after load, to say "I'm here". */
+.sb-launcher::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--accent-color, #F7B225);
+  opacity: 0;
+  pointer-events: none;
+  animation: sb-ring 2.4s ease-out 2.5s 2;
+}
+
+.sb-root.is-open .sb-launcher {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: transform 0.2s ease, opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.sb-nudge {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 250px;
+  padding: 12px 8px 12px 16px;
+  border-radius: 16px 16px 4px 16px;
+  background: rgba(18, 18, 18, 0.97);
+  border: 1px solid rgba(247, 178, 37, 0.4);
+  color: var(--text-color, #e0e0e0);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.sb-root.has-nudge:not(.is-open) .sb-nudge {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.sb-nudge > span { padding-top: 1px; }
+
+.sb-nudge-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-muted, #888);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sb-nudge-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+/* ------------------------------------------------------------------ */
+/* Panel                                                               */
+/* ------------------------------------------------------------------ */
+
+.sb-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  width: 384px;
+  height: min(640px, calc(100vh - 48px));
+  height: min(640px, calc(100dvh - 48px));
+  overflow: hidden;
+  background: rgba(10, 10, 10, 0.96);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(247, 178, 37, 0.05);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(16px) scale(0.98);
+  transform-origin: bottom right;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+}
+
+.sb-root.is-open .sb-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.sb-panel:focus { outline: none; }
+
+/* ---- header ---- */
+.sb-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 12px 14px 18px;
+  border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  background: linear-gradient(180deg, rgba(247, 178, 37, 0.11), rgba(247, 178, 37, 0));
+}
+
+.sb-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--accent-color, #F7B225);
+  color: #000;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 18px rgba(247, 178, 37, 0.35);
+}
+
+.sb-titles { flex: 1; min-width: 0; }
+
+.sb-title {
+  display: block;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-weight: 700;
+  font-size: 1.08rem;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.sb-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #888);
+}
+
+.sb-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-color, #F7B225);
+  box-shadow: 0 0 8px rgba(247, 178, 37, 0.8);
+}
+
+.sb-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: var(--text-muted, #888);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sb-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+/* ---- conversation ---- */
+.sb-log {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sb-log::-webkit-scrollbar { width: 6px; }
+.sb-log::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+
+.sb-msg {
+  display: flex;
+  animation: sb-in 0.28s ease both;
+}
+
+.sb-bot { justify-content: flex-start; }
+.sb-user { justify-content: flex-end; }
+
+.sb-bubble {
+  max-width: 88%;
+  padding: 11px 15px;
+  border-radius: 18px;
+  overflow-wrap: anywhere;
+}
+
+.sb-bot .sb-bubble {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-bottom-left-radius: 6px;
+}
+
+.sb-user .sb-bubble {
+  background: var(--accent-color, #F7B225);
+  color: #000;
+  font-weight: 500;
+  border-bottom-right-radius: 6px;
+}
+
+/* Said by screen readers only: who is speaking. */
+.sb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sb-para { margin: 0; }
+.sb-para + .sb-para,
+.sb-para + .sb-list,
+.sb-list + .sb-para { margin-top: 8px; }
+
+.sb-list { margin: 6px 0 0; padding: 0; list-style: none; }
+.sb-list li { position: relative; margin: 4px 0; padding-left: 16px; }
+.sb-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color, #F7B225);
+}
+
+.sb-body strong { color: #fff; font-weight: 600; }
+
+.sb-link {
+  color: var(--accent-color, #F7B225);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sb-link:hover { color: #fff; }
+
+/* ---- buttons inside an answer (email, call, LinkedIn…) ---- */
+.sb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.sb-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 178, 37, 0.55);
+  background: rgba(247, 178, 37, 0.08);
+  color: var(--accent-color, #F7B225);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sb-action:first-child { background: var(--accent-color, #F7B225); border-color: var(--accent-color, #F7B225); color: #000; }
+
+.sb-action:hover {
+  transform: translateY(-2px);
+  background: var(--accent-color, #F7B225);
+  color: #000;
+  box-shadow: 0 8px 18px rgba(247, 178, 37, 0.25);
+}
+
+.sb-action svg { flex: none; }
+
+/* ---- "typing…" ---- */
+.sb-typing .sb-bubble { display: flex; gap: 5px; padding: 15px 16px; }
+
+.sb-typing i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-color, #F7B225);
+  opacity: 0.3;
+  animation: sb-blink 1.1s infinite ease-in-out;
+}
+
+.sb-typing i:nth-child(2) { animation-delay: 0.18s; }
+.sb-typing i:nth-child(3) { animation-delay: 0.36s; }
+
+/* ---- suggestion buttons ---- */
+.sb-chips {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 142px;
+  padding: 6px 14px 12px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.sb-chips::-webkit-scrollbar { display: none; }
+
+.sb-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color, #e0e0e0);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  text-align: left;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sb-chip:hover {
+  background: var(--accent-color, #F7B225);
+  border-color: var(--accent-color, #F7B225);
+  color: #000;
+  box-shadow: 0 0 10px var(--accent-glow, rgba(247, 178, 37, 0.5));
+}
+
+/* ---- message box ---- */
+.sb-form {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 8px;
+  border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+}
+
+.sb-input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sb-input::placeholder { color: #8a8a8a; }
+
+.sb-input:focus {
+  border-color: var(--accent-color, #F7B225);
+  box-shadow: 0 0 0 3px rgba(247, 178, 37, 0.2);
+}
+
+.sb-send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent-color, #F7B225);
+  color: #000;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.sb-send:hover:not(:disabled) { transform: scale(1.07); }
+.sb-send:disabled { background: rgba(255, 255, 255, 0.1); color: #7a7a7a; }
+
+.sb-foot {
+  flex: none;
+  margin: 0;
+  padding: 0 16px 12px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-muted, #888);
+}
+
+/* ---- keyboard focus ---- */
+.sb-root button:focus-visible,
+.sb-root a:focus-visible {
+  outline: 2px solid var(--accent-color, #F7B225);
+  outline-offset: 2px;
+}
+
+.sb-launcher:focus-visible,
+.sb-send:focus-visible,
+.sb-action:first-child:focus-visible { outline-color: #fff; }
+
+.sb-launcher:focus-visible { outline-offset: 4px; }
+
+.sb-log:focus-visible {
+  outline: 2px solid rgba(247, 178, 37, 0.6);
+  outline-offset: -3px;
+  border-radius: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tablets & phones                                                    */
+/* ------------------------------------------------------------------ */
+
+/* The site stops drawing its custom cursor at this width (style.css) and brings the normal one back — so do we. */
+@media (max-width: 768px) {
+  .sb-root a,
+  .sb-root button { cursor: pointer; }
+  .sb-root input { cursor: text; }
+  .sb-root .sb-log { cursor: auto; }
+}
+
+/* Keep the chat button from sitting on top of the footer's contact buttons and copyright line. */
+@media (max-width: 900px) {
+  .footer { padding-bottom: calc(30px + 78px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Short windows (a phone held sideways, a small laptop window): give the conversation the room —
+   suggestions become one scrolling row and, when it's really tight, the small print goes. */
+@media (max-height: 560px) {
+  .sb-panel {
+    bottom: 12px;
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+  }
+
+  .sb-head { padding-top: 10px; padding-bottom: 10px; }
+
+  .sb-chips {
+    flex-wrap: nowrap;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+  }
+
+  .sb-chip { flex: none; white-space: nowrap; }
+}
+
+@media (max-height: 440px) {
+  .sb-foot { display: none; }
+}
+
+@media (max-width: 600px) {
+  .sb-launcher {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  /* Icon only — the text stays available to screen readers. */
+  .sb-launcher-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .sb-nudge {
+    right: 16px;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    max-width: min(250px, calc(100vw - 32px));
+  }
+
+  /* Full screen. --sb-top / --sb-height follow the visible area so the on-screen keyboard never covers the message box. */
+  .sb-panel {
+    top: var(--sb-top, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    height: var(--sb-height, 100dvh);
+    border: 0;
+    border-radius: 0;
+    transform: translateY(24px);
+    transform-origin: bottom center;
+  }
+
+  .sb-head { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+  .sb-foot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .sb-bubble { max-width: 92%; }
+
+  /* One scrolling row of suggestions instead of a block that eats the screen. */
+  .sb-chips {
+    flex-wrap: nowrap;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sb-chip { flex: none; white-space: nowrap; }
+
+  /* 16px stops iOS Safari from zooming the page when the box is focused. */
+  .sb-input { font-size: 16px; }
+}
+
+/* Stop the page scrolling behind the full-screen chat. */
+html.sb-lock,
+html.sb-lock body { overflow: hidden; }
+
+/* ------------------------------------------------------------------ */
+/* Motion, print                                                       */
+/* ------------------------------------------------------------------ */
+
+@keyframes sb-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sb-blink {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1; transform: translateY(-3px); }
+}
+
+@keyframes sb-ring {
+  0%   { opacity: 0.75; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.35, 1.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-root *,
+  .sb-root *::before,
+  .sb-root *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  .sb-typing i { opacity: 0.7; }
+  .sb-launcher:hover,
+  .sb-action:hover { transform: none; }
+}
+
+@media print {
+  .sb-root { display: none !important; }
+}
